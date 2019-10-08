@@ -1,3 +1,8 @@
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!A basic solver for 2D Navier-Stokes equations.
+!The applied method is finite difference time-dependent (FDTD).
+!By F. Garzon
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 program navier2d
 implicit none
 
@@ -11,16 +16,17 @@ real, dimension(:,:), allocatable :: dv2dy,dvudx,d2vdx2,d2vdy2
 
 real, dimension(:,:), allocatable :: flx,fly
 call CPU_time(ti)
-Nplot=100
+Nplot=100 !Step to print data arrays
 
-lx=6.0 ; ly=1.0
-nx=256 ; ny=64
-dx=lx/float(nx-1) ; dy=ly/float(ny-1)
+!Setting domain parameters for the study of 2D Poiseuille's flow
+lx=6.0 ; ly=1.0 !Domain length
+nx=256 ; ny=64 !Cells in x and y direction
+dx=lx/float(nx-1) ; dy=ly/float(ny-1) !Spatial step
 
 x1=1 ; x2=nx-1 ; y1=1 ; y2=ny-1
 
-Re=1.0
-Ga=0.7
+Re=1.0 !Reynolds number
+Ga=0.7 !Gamma parameter
 
 allocate(x(0:nx),y(0:ny))
 allocate(u1(0:nx,0:ny),u2(0:nx,0:ny),v1(0:nx,0:ny),v2(0:nx,0:ny))
@@ -66,7 +72,7 @@ FORALL(i=x1:x2-1,j=y1:y2)
 
 	d2udy2(i,j)=(1.0/(dy*dy))*(u1(i,j+1)-2.0*u1(i,j)+u1(i,j-1))
 
-	flx(i,j)=0.0
+	flx(i,j)=0.0 !External force in x direction
 
 	F(i,j)=u1(i,j)+dt*( (1.0/Re)*(d2udx2(i,j) + d2udy2(i,j))&
 		 - du2dx(i,j) - duvdy(i,j) &
@@ -89,7 +95,7 @@ FORALL(i=x1:x2,j=y1:y2-1)
 
 	d2vdy2(i,j)=(1.0/(dy*dy))*(v1(i,j+1)-2.0*v1(i,j)+v1(i,j-1))
 
-	fly(i,j)=0.0
+	fly(i,j)=0.0 !External force in y direction
 
 	G(i,j)=v1(i,j)+dt*( (1.0/Re)*(d2vdx2(i,j)+d2vdy2(i,j))&
 		 -dvudx(i,j)-dv2dy(i,j)&
@@ -131,14 +137,15 @@ ENDDO
 !=====================
 !=====================
 
+!Finding values at the center of the numerical cell
 FORALL(i=x1:x2,j=y1:y2)
 	u1(i,j)=0.5*(u1(i,j)+u2(i-1,j))
         v1(I,J)=0.5*(v2(i,j)+v2(i,j-1))
 END FORALL
 
 OPEN(1,file='data.dat')
-OPEN(2,file='data_mid.dat')
 
+!Saving inner data
 do i=x1, x2
 do j=y1, y2
 	write(1,*) x(i),y(j),u1(i,j),v1(i,j)
@@ -179,28 +186,40 @@ implicit none
 
 integer, value :: nx,ny
 real, intent(inout) :: u1(0:nx,0:ny),u2(0:nx,0:ny),v1(0:nx,0:ny),v2(0:nx,0:ny)
+integer :: i,j
 
 !x=0,y - LEFT
-u1(0,0:ny)=1.0 ; v1(0,0:ny)=-v1(1,0:ny) !No-Slip
-!u1(0,0:ny)=1.0 ; v1(0,0:ny)=-v1(1,0:ny) !Inflow
-
+!Inflow
+do j=0,ny
+u1(0,j)=1.0
+v1(0,j)=-v1(1,j)
+enddo
 
 !x=nx,y - RIGHT
-u1(nx-1,0:ny)=u1(nx-2,0:ny) ; v1(nx,0:ny)=v1(nx-1,0:ny)
-!u1(nx-1,0:ny)=u1(nx-2,0:ny) ; v1(nx,0:ny)=v1(nx-1,0:ny) !Outflow
+!Outflow
+do j=0,ny
+u1(nx-1,j)=u1(nx-2,j)
+v1(nx,j)=v1(nx-1,j)
+enddo
 
 
 !x,y=ny - TOP
-!u1(0:nx,ny)=1.0 ; v1(0:nx,ny)=-v1(0:nx,ny-1) !Free-Slip
-u1(0:nx,ny)=-u1(0:nx,ny-1) ; v1(0:nx,ny-1)=0.0 !No-Slip
-!u1(0:nx,ny)=-u1(0:nx,ny-1) ; v1(0:nx,ny-1)=-1.0 !Inflow
-!u1(0:nx,ny)=u1(0:nx,ny-1) ; v1(0:nx,ny-1)=v1(0:nx,ny-2) !Outflow
+!No-slip
+do i=0,nx
+u1(i,ny)=-u1(i,ny-1)
+v1(i,ny-1)=0.0 !No-Slip
+enddo
 
 
 !x,y=0 - BOT
-u1(0:nx,0)=-u1(0:nx,1) ; v1(0:nx,0)=0.0
+!No-slip
+do i=0,nx
+u1(i,0)=-u1(i,1)
+v1(i,0)=0.0
+enddo
 
-u2=u1 ; v2=v1
+u2=u1
+v2=v1
 end subroutine
 
 subroutine PRESSURE(p1,p2,F,G,nx,ny,dx,dy,dt)
@@ -224,9 +243,16 @@ FORALL(i=1:nx-1,j=1:ny-1)
 		- (1.0/dt)*( (F(i,j)-F(i-1,j))/(dx) + (G(i,j)-G(i,j-1))/(dy) ) )
 END FORALL
 
+!Neumann boundary conditions for pressure
+do j=0,ny
+p2(0,j)=p2(1,j)
+p2(nx,j)=p2(nx-1,j)
+enddo
 
-p2(0,1:ny-1)=p2(1,1:ny-1) ; p2(nx,0:ny-1)=p2(nx-1,0:ny-1)
-p2(1:nx-1,0)=p2(1:nx-1,1) ; p2(1:nx-1,ny)=p2(1:nx-1,ny-1)
+do i=0,nx
+p2(i,0)=p2(i,1)
+p2(i,ny)=p2(i,ny-1)
+enddo
 
 p1=p2
 ENDDO
@@ -244,7 +270,7 @@ integer :: NCOUNT
 character :: EXT*4, DESTINY*512, NCTEXT*4, OUTFILE*512
 
 EXT='.dat'
-DESTINY='/home/fgarzonpc/Documentos/Simulaciones/Fluids/Navier-Stokes-2D/mysquare/anim/'
+DESTINY='LOCAL_PATH/anim/' !Add your local anim folder path
 NCOUNT=t/Nplot
 WRITE(NCTEXT,'(I0)') NCOUNT
 
