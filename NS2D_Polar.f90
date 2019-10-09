@@ -1,3 +1,8 @@
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!A basic solver for 2D Navier-Stokes equations.
+!The applied method is finite difference time-dependent (FDTD).
+!By F. Garzon
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 program Navier2DPolar
 implicit none
 
